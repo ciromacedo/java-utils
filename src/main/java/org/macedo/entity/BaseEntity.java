@@ -10,7 +10,4 @@ import lombok.Setter;
 @Setter
 public abstract class BaseEntity implements java.io.Serializable {
 
-    @Id
-    protected Long id;
-
 }
