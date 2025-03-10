@@ -20,13 +20,19 @@ public class DaoException extends DataAccessException {
         this.args = args;
     }
 
-    public DaoException(String messageKey, Object[] args) {
+    public DaoException(String messageKey, Throwable cause) {
+        super(resolveMessage(messageKey), cause);
+        this.messageKey = messageKey;
+        this.args = null;
+    }
+
+    public DaoException(String messageKey, Object... args) {
         super(resolveMessage(messageKey, args));
         this.messageKey = messageKey;
         this.args = args;
     }
 
-    private static String resolveMessage(String messageKey, Object[] args) {
+    private static String resolveMessage(String messageKey, Object... args) {
         if (messageSource != null) {
             return messageSource.getMessage(messageKey, args, LocaleContextHolder.getLocale());
         }
