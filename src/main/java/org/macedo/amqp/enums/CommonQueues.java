@@ -1,17 +1,30 @@
 package org.macedo.amqp.enums;
 
 public enum CommonQueues {
+
     LOG_QUEUE("log.queue"),
     LOG_EXCHANGE("log.exchange"),
-    ROUTING_KEY_LOG ("log.info");
+    ROUTING_KEY_LOG("log.#");
 
-    private final String queueName;
+    private final String value;
 
-    CommonQueues(String queueName) {
-        this.queueName = queueName;
+    CommonQueues(String value) {
+        this.value = value;
     }
 
     public String getQueueName() {
-        return queueName;
+        return value;
+    }
+
+    public String getExchangeName() {
+        return value;
+    }
+
+    public String getRoutingKey() {
+        return value;
+    }
+
+    public String get() {
+        return value;
     }
 }
