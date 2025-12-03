@@ -44,6 +44,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(subject, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                /*registro de uso de chave de API- Via Apache Feign*/
+                apiKeyValidator.registrarUso(apiKey);
+
                 log.debug("Valid API Key for subject: {}", subject);
                 filterChain.doFilter(request, response);
                 return;
