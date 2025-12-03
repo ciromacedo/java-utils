@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.macedo.security.JwtUtil;
+import org.macedo.security.jwt.JwtUtil;
 import org.macedo.security.annotations.ComponenteControlado;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;

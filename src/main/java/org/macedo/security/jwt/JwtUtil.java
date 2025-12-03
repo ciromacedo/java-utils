@@ -1,4 +1,4 @@
-package org.macedo.security;
+package org.macedo.security.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
