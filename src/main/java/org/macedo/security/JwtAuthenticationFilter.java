@@ -19,7 +19,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
-
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
@@ -37,64 +36,98 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
+        String path = request.getRequestURI();
+        String method = request.getMethod();
+
+        log.debug("[UTIL-FILTER] ▶ {} {}", method, path);
+
+        // -------------------------
+        // 1) TENTATIVA API KEY
+        // -------------------------
         String apiKey = request.getHeader("X-API-Key");
-        // 1) Tentativa: API KEY
+
         if (apiKey != null && !apiKey.isBlank()) {
+
+            log.debug("[UTIL-FILTER] 🔍 Detectada API Key: {}", apiKey.substring(0, Math.min(10, apiKey.length())) + "...");
+
             if (apiKeyValidator.isValid(apiKey)) {
+
+                log.debug("[UTIL-FILTER] ✔ API Key válida, consultando permissões...");
+
                 String subject = apiKeyValidator.resolveSubject(apiKey);
 
                 List<String> roles = apiKeyValidator.getAuthorities(apiKey);
+                log.debug("[UTIL-FILTER] ✔ Permissões retornadas: {}", roles);
 
-                List<GrantedAuthority> authorities =
-                        roles.stream()
-                                .map(SimpleGrantedAuthority::new)
-                                .collect(Collectors.toList());
+                List<GrantedAuthority> authorities = roles.stream()
+                        .map(SimpleGrantedAuthority::new)
+                        .collect(Collectors.toList());
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(subject, null, authorities);
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(subject, null, authorities);
 
-                /*registro de uso de chave de API- Via Apache Feign*/
-                apiKeyValidator.registrarUso(apiKey);
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(auth);
 
-                log.debug("Valid API Key for subject: {}", subject);
+                log.debug("[UTIL-FILTER] ✔ Subject autenticado via API Key: {}", subject);
+
+                try {
+                    apiKeyValidator.registrarUso(apiKey);
+                    log.debug("[UTIL-FILTER] ✔ Uso da API Key registrado com sucesso.");
+                } catch (Exception e) {
+                    log.error("[UTIL-FILTER] ❌ Erro ao registrar uso da API Key: {}", e.getMessage());
+                }
+
                 filterChain.doFilter(request, response);
                 return;
+
             } else {
-                log.warn("Invalid API Key");
+                log.warn("[UTIL-FILTER] ❌ API Key inválida.");
             }
         }
 
-        // 2) Tentativa: JWT
+        // -------------------------
+        // 2) TENTATIVA JWT
+        // -------------------------
         String header = request.getHeader("Authorization");
+
         if (header != null && header.startsWith("Bearer ")) {
+
             String token = header.substring(7);
+            log.debug("[UTIL-FILTER] 🔍 Token JWT detectado.");
+
             if (jwtUtil.isValid(token)) {
+
                 Claims claims = jwtUtil.parseClaims(token);
                 String username = claims.getSubject();
-
                 Long userId = claims.get("userId", Long.class);
 
-                // Extrair roles do JWT
-                List<String> roles = claims.get("roles", List.class);
-                List<GrantedAuthority> authorities =
-                        roles != null
-                                ? roles.stream()
-                                .map(r -> (GrantedAuthority) () -> r)
-                                .collect(Collectors.toList())
-                                : List.of();
+                log.debug("[UTIL-FILTER] ✔ JWT válido para usuário {} (id={})", username, userId);
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                List<String> roles = claims.get("roles", List.class);
+                log.debug("[UTIL-FILTER] ✔ Roles carregadas do JWT: {}", roles);
+
+                List<GrantedAuthority> authorities =
+                        roles == null ? List.of() :
+                                roles.stream().map(r -> (GrantedAuthority) () -> r).collect(Collectors.toList());
+
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(username, null, authorities);
+
+                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(auth);
 
                 request.setAttribute("userId", userId);
 
-                log.debug("Valid JWT token para user {} (id = {})", username, userId);
             } else {
-                log.warn("Invalid JWT token");
+                log.warn("[UTIL-FILTER] ❌ JWT inválido ou expirado.");
             }
+
+        } else {
+            log.debug("[UTIL-FILTER] 🛈 Nenhum JWT encontrado no header.");
         }
+
         filterChain.doFilter(request, response);
     }
 }
+
