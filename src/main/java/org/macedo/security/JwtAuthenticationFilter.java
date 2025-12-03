@@ -9,11 +9,14 @@ import org.macedo.security.apikey.ApiKeyValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -33,11 +36,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String apiKey = request.getHeader("X-API-Key");
-        // 1) Tentativa de autenticação via API KEY
+        // 1) Tentativa: API KEY
         if (apiKey != null && !apiKey.isBlank()) {
             if (apiKeyValidator.isValid(apiKey)) {
                 String subject = apiKeyValidator.resolveSubject(apiKey);
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(subject, null, null);
+                List<GrantedAuthority> authorities = apiKeyValidator.getAuthorities(apiKey);
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(subject, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 log.debug("Valid API Key for subject: {}", subject);
@@ -48,7 +52,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        // 2) Tentativa de autenticação via JWT
+        // 2) Tentativa: JWT
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
@@ -56,7 +60,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Claims claims = jwtUtil.parseClaims(token);
                 String username = claims.getSubject();
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(username, null, null);
+                // Extrair roles do JWT
+                List<String> roles = claims.get("roles", List.class);
+                List<GrantedAuthority> authorities =
+                        roles != null
+                                ? roles.stream()
+                                .map(r -> (GrantedAuthority) () -> r)
+                                .collect(Collectors.toList())
+                                : List.of();
+
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 log.debug("Valid JWT token for user: {}", username);
