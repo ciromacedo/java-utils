@@ -72,6 +72,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Claims claims = jwtUtil.parseClaims(token);
                 String username = claims.getSubject();
 
+                Long userId = claims.get("userId", Long.class);
+
                 // Extrair roles do JWT
                 List<String> roles = claims.get("roles", List.class);
                 List<GrantedAuthority> authorities =
@@ -84,7 +86,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-                log.debug("Valid JWT token for user: {}", username);
+
+                request.setAttribute("userId", userId);
+
+                log.debug("Valid JWT token para user {} (id = {})", username, userId);
             } else {
                 log.warn("Invalid JWT token");
             }
