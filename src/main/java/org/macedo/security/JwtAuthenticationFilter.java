@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -40,7 +41,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (apiKey != null && !apiKey.isBlank()) {
             if (apiKeyValidator.isValid(apiKey)) {
                 String subject = apiKeyValidator.resolveSubject(apiKey);
-                List<GrantedAuthority> authorities = apiKeyValidator.getAuthorities(apiKey);
+
+                List<String> roles = apiKeyValidator.getAuthorities(apiKey);
+
+                List<GrantedAuthority> authorities =
+                        roles.stream()
+                                .map(SimpleGrantedAuthority::new)
+                                .collect(Collectors.toList());
+
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(subject, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
