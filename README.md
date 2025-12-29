@@ -1,3 +1,3 @@
 #java-utils
 
-mvn clean deploy~~~~
+mvn clean deploy
